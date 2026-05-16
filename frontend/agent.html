@@ -294,6 +294,81 @@
       color: #fca5a5;
     }
 
+    /* Kullanıcı input formu (user_input_required) */
+    .user-input-box {
+      background: #0d1a2e;
+      border: 1px solid #1e40af;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .user-input-header {
+      background: #0f1f3d;
+      padding: 8px 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #60a5fa;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .user-input-prompt {
+      padding: 8px 12px;
+      font-size: 0.82rem;
+      color: #93c5fd;
+      font-style: italic;
+    }
+
+    .user-input-controls {
+      padding: 10px 12px;
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .user-input-controls textarea {
+      flex: 1;
+      height: 60px;
+      resize: none;
+      font-size: 0.85rem;
+    }
+
+    .user-input-controls .send-btn {
+      padding: 0 14px;
+      height: 60px;
+      background: #1d4ed8;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .user-input-controls .send-btn:hover { background: #1e40af; }
+
+    .user-input-controls .voice-btn {
+      padding: 0 12px;
+      height: 60px;
+      background: #065f46;
+      color: #6ee7b7;
+      border: 1px solid #059669;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .user-input-controls .voice-btn:hover { background: #047857; }
+    .user-input-controls .voice-btn.recording {
+      background: #7f1d1d;
+      color: #fca5a5;
+      border-color: #dc2626;
+      animation: pulse 1s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
     /* Input */
     .input-row {
       display: flex;
@@ -394,9 +469,10 @@
 
     // ── Tool ikonları ──────────────────────────────────────
     const TOOL_ICONS = {
-      terminal:   "⚡",
-      dosya_oku:  "📖",
-      dosya_yaz:  "✏️",
+      terminal:        "⚡",
+      dosya_oku:       "📖",
+      dosya_yaz:       "✏️",
+      kullanici_input: "🎙️",
     };
 
     // ── Başlat ─────────────────────────────────────────────
@@ -570,6 +646,102 @@
             const box = document.createElement("div");
             box.className = "text-box";
             box.textContent = ev.content;
+            (stepBlock || getMsgs()).appendChild(box);
+            scroll();
+            break;
+          }
+
+          case "user_input_required": {
+            const box = document.createElement("div");
+            box.className = "user-input-box";
+
+            const hdr = document.createElement("div");
+            hdr.className = "user-input-header";
+            hdr.textContent = "🎙️ Kullanıcı Girdisi Bekleniyor";
+            box.appendChild(hdr);
+
+            if (ev.prompt) {
+              const p = document.createElement("div");
+              p.className = "user-input-prompt";
+              p.textContent = ev.prompt;
+              box.appendChild(p);
+            }
+
+            const controls = document.createElement("div");
+            controls.className = "user-input-controls";
+
+            const ta = document.createElement("textarea");
+            ta.placeholder = "Yanıtınızı yazın...";
+            controls.appendChild(ta);
+
+            // Sesli giriş butonu (Whisper)
+            const voiceBtn = document.createElement("button");
+            voiceBtn.className = "voice-btn";
+            voiceBtn.textContent = "Sesli";
+            let mediaRecorder = null;
+            let audioChunks = [];
+            voiceBtn.onclick = async () => {
+              if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                return;
+              }
+              try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioChunks = [];
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+                mediaRecorder.onstart = () => voiceBtn.classList.add("recording");
+                mediaRecorder.onstop = async () => {
+                  voiceBtn.classList.remove("recording");
+                  stream.getTracks().forEach(t => t.stop());
+                  const blob = new Blob(audioChunks, { type: "audio/webm" });
+                  const formData = new FormData();
+                  formData.append("audio", blob, "audio.webm");
+                  voiceBtn.disabled = true;
+                  voiceBtn.textContent = "...";
+                  try {
+                    const res = await fetch("/api/transcribe", { method: "POST", body: formData });
+                    const data = await res.json();
+                    if (data.text) ta.value += data.text;
+                    else alert("Transkripsiyon hatası: " + (data.error || "bilinmeyen hata"));
+                  } catch (e) {
+                    alert("Transkripsiyon isteği başarısız: " + e.message);
+                  } finally {
+                    voiceBtn.disabled = false;
+                    voiceBtn.textContent = "Sesli";
+                    mediaRecorder = null;
+                  }
+                };
+                mediaRecorder.start();
+              } catch (e) {
+                alert("Mikrofon erişimi sağlanamadı: " + e.message);
+              }
+            };
+            controls.appendChild(voiceBtn);
+
+            const sendBtn = document.createElement("button");
+            sendBtn.className = "send-btn";
+            sendBtn.textContent = "Gönder";
+            sendBtn.onclick = async () => {
+              const text = ta.value.trim();
+              if (!text) return;
+              sendBtn.disabled = true;
+              voiceBtn.disabled = true;
+              ta.disabled = true;
+              try {
+                await fetch("/api/agent/kullanici_input", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ session_id: sessionId, text }),
+                });
+              } catch (e) {
+                ekleHata("Input gönderilemedi: " + e.message);
+              }
+              box.style.opacity = "0.5";
+            };
+            controls.appendChild(sendBtn);
+
+            box.appendChild(controls);
             (stepBlock || getMsgs()).appendChild(box);
             scroll();
             break;

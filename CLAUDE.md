@@ -49,10 +49,12 @@ Flask backend + vanilla JS frontend. Üç ayrı sayfa sunar:
 - **`app.py`** — Flask uygulaması. Routing, model doğrulaması, asistan ve agent oturum yönetimi.
 - **`llm.py`** — OpenAI istemcisi kurulumu ve `stream_llm()` fonksiyonu. Tek seferlik, history'siz.
 - **`asistan.py`** — `Asistan` sınıfı. Conversation history tutan, `sohbet()` ve `stream_sohbet()` metodları.
-- **`agent.py`** — `Agent` sınıfı. Tool-calling agentic loop; `calistir()` generator'ı her adımda event dict'i yield eder. Tool'lar: `terminal`, `dosya_oku`, `dosya_yaz`.
+- **`agent.py`** — `Agent` sınıfı. Tool-calling agentic loop; `calistir()` generator'ı her adımda event dict'i yield eder. Tool'lar: `terminal`, `dosya_oku`, `dosya_yaz`, `kullanici_input`.
+- **`backend/tools/__init__.py`** — Tool'ları (`TOOL_DEFINITIONS`, `TOOL_FUNCTIONS`, `submit_input`) dışa aktarır.
+- **`backend/tools/kullanici_input.py`** — `kullanici_input` tool'u. `queue.Queue` ile agent loop'unu bloke eder; kullanıcı input girince LLM ile özetler.
 - **`frontend/index.html`** — LLM arayüzü. Tek prompt → tek yanıt.
 - **`frontend/asistan.html`** — Sohbet arayüzü. Baloncuklu, çok turlu, session tabanlı.
-- **`frontend/agent.html`** — Agent arayüzü. Her adımı, tool call'ları, sonuçlarını ve thinking text'ini görsel olarak gösterir.
+- **`frontend/agent.html`** — Agent arayüzü. Her adımı, tool call'ları, sonuçlarını ve thinking text'ini görsel olarak gösterir. `user_input_required` event geldiğinde yazılı/sesli input formu açar.
 
 ### LLM Arayüzü Veri Akışı
 
@@ -86,6 +88,7 @@ Flask backend + vanilla JS frontend. Üç ayrı sayfa sunar:
 | POST | `/api/asistan/sohbet` | Asistana mesaj gönder (streaming, text/plain) |
 | POST | `/api/agent/yeni` | Yeni agent oturumu oluştur |
 | POST | `/api/agent/calistir` | Agent'ı çalıştır (NDJSON stream) |
+| POST | `/api/agent/kullanici_input` | Agent beklerken kullanıcı inputunu ilet |
 
 ### Kritik Noktalar
 

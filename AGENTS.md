@@ -25,6 +25,10 @@ app.py                  # Flask uygulaması; routing, doğrulama, oturum yöneti
 llm.py                  # OpenAI istemcisi; hafızasız stream_llm() fonksiyonu
 asistan.py              # Asistan sınıfı; conversation history + stream_sohbet()
 agent.py                # Agent sınıfı; tool-calling agentic loop + calistir() generator
+backend/
+  tools/
+    __init__.py         # Tool'ları (TOOL_DEFINITIONS, TOOL_FUNCTIONS) dışa aktarır
+    kullanici_input.py  # kullanici_input tool'u: yazılı/sesli input al, LLM ile özetle
 frontend/
   index.html            # LLM arayüzü: tek seferlik prompt/yanıt sayfası
   asistan.html          # Asistan arayüzü: çok turlu, baloncuklu sohbet sayfası
@@ -47,7 +51,8 @@ Backend routing ve doğrulama `app.py`'de kalır. Provider'a özgü LLM çağrı
 | POST | `/api/asistan/yeni` | `{model, system_instructions}` | Yeni asistan oturumu oluşturur, `session_id` döner |
 | POST | `/api/asistan/sohbet` | `{session_id, user_prompt}` | Asistana mesaj gönderir (streaming, text/plain) |
 | POST | `/api/agent/yeni` | `{model, system_instructions}` | Yeni agent oturumu oluşturur, `session_id` döner |
-| POST | `/api/agent/calistir` | `{session_id, user_prompt}` | Agent'ı çalıştırır (NDJSON stream; event tipleri: `step_start`, `thinking`, `tool_call`, `tool_result`, `text`, `done`, `error`) |
+| POST | `/api/agent/calistir` | `{session_id, user_prompt}` | Agent'ı çalıştırır (NDJSON stream; event tipleri: `step_start`, `thinking`, `tool_call`, `tool_result`, `user_input_required`, `text`, `done`, `error`) |
+| POST | `/api/agent/kullanici_input` | `{session_id, text}` | Agent bekliyorken kullanıcı inputunu iletir; tool loop'unu devam ettirir |
 
 ---
 

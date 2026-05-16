@@ -1,13 +1,15 @@
 import json
 import os
 import subprocess
+import uuid
 from typing import Iterator
 
 from llm import client
+from backend.tools import TOOL_DEFINITIONS, TOOL_FUNCTIONS
 
 AGENT_WORKSPACE = "/tmp/agent_workspace"
 
-TOOLS = [
+TOOLS = [*TOOL_DEFINITIONS,
     {
         "type": "function",
         "function": {
@@ -118,8 +120,9 @@ class Agent:
       {"type": "done"}
     """
 
-    def __init__(self, system_instructions: str, model: str = "gpt-4.1-mini"):
+    def __init__(self, system_instructions: str, model: str = "gpt-4.1-mini", session_id: str = None):
         self.model = model
+        self.session_id = session_id or str(uuid.uuid4())
         self.history: list[dict] = [
             {"role": "system", "content": system_instructions}
         ]
@@ -177,8 +180,13 @@ class Agent:
 
                 yield {"type": "tool_call", "name": name, "args": args}
 
-                fn = _TOOL_MAP.get(name)
-                result = fn(args) if fn else f"Bilinmeyen araç: {name}"
+                if name in TOOL_FUNCTIONS:
+                    yield {"type": "user_input_required", "prompt": args.get("prompt", "")}
+                    fn = TOOL_FUNCTIONS[name]
+                    result = fn(args, self.session_id, self.model)
+                else:
+                    fn = _TOOL_MAP.get(name)
+                    result = fn(args) if fn else f"Bilinmeyen araç: {name}"
 
                 yield {"type": "tool_result", "name": name, "result": result}
 

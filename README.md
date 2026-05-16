@@ -1,29 +1,56 @@
-# Proje Adı
+# vbl1
 
-vbl1
+Flask + vanilla JS ile oluşturulmuş üç arayüzlü bir LLM uygulaması.
 
-## Proje Hakkında
+## Sayfalar
 
-Bu proje, çeşitli Python modüllerinden oluşan bir yazılım uygulamasıdır. Projede agent ve asistan dosyaları ile, front-end tarafında ise HTML dosyaları ile kullanıcı ara yüzleri oluşturulmuştur.
+| Sayfa | URL | Açıklama |
+|---|---|---|
+| LLM Arayüzü | `/` | Tek seferlik, hafızasız LLM çağrısı |
+| Asistan | `/asistan` | Conversation history tutan sohbet |
+| Kodlama Agenti | `/agent` | Tool-calling agentic loop |
 
 ## Kurulum
 
-Projeyi çalıştırmak için gereksinim dosyasındakı paketlerin kurulması gerekmektedir. Bunun için:
-
-```
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-komutunu çalıştırarak gerekli tüm bağımlılıkları yükleyebilirsiniz.
+`.env` dosyası oluşturun:
 
-## Kullanım
+```
+OPENAI_API_KEY=sk-...
+```
 
-Proje, arka planda `app.py`, `agent.py`, `asistan.py` ve `llm.py` Python dosyaları ve ön yüzde `frontend` klasöründeki HTML dosyaları ile çalışmaktadır. Her bir bileşen spesifik işlemler için tasarlanmıştır.
+Uygulamayı başlatın:
 
-## Katkıda Bulunma
+```bash
+flask --app app run --debug
+```
 
-Katkıda bulunmak isteyenler standart bir pull request süreci üzerinden projeye katkıda bulunabilirler.
+## Kodlama Agenti Tool'ları
 
-## Lisans
+Agent aşağıdaki tool'lara sahiptir:
 
-Bu projeye ait lisans bilgileri burada yer alacaktır.
+| Tool | Açıklama |
+|---|---|
+| `terminal` | Shell komutu çalıştırır (`/tmp/agent_workspace`) |
+| `dosya_oku` | Dosya içeriğini okur |
+| `dosya_yaz` | Dosya oluşturur veya üzerine yazar |
+| `kullanici_input` | Kullanıcıdan yazılı veya sesli input alır, özetler |
+
+### `kullanici_input` Tool'u Nasıl Çalışır?
+
+Agent görev sırasında kullanıcıdan bilgi almaya ihtiyaç duyduğunda `kullanici_input` tool'unu çağırır. Akış şu şekildedir:
+
+1. Agent tool'u çağırır → backend bir `queue` üzerinde bloke bekler
+2. Arayüzde mavi bir input kutusu açılır
+3. Kullanıcı **metin yazar** veya **Sesli** butonuna basıp konuşur
+   - Sesli girişte kayıt durdurulduğunda ses OpenAI Whisper API ile metne çevrilir
+4. **Gönder** butonuna basılır
+5. Metin backend'e iletilir, LLM ile özetlenir
+6. Özet agent'a döner ve loop devam eder
+
+![kullanici_input tool](screenshots/kullanici_input.png)

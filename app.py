@@ -1,9 +1,10 @@
 import json
 import uuid
 from flask import Flask, Response, request, send_from_directory, stream_with_context
-from llm import stream_llm
+from llm import stream_llm, client
 from asistan import Asistan
 from agent import Agent
+from backend.tools import submit_input
 
 app = Flask(__name__, static_folder="frontend")
 
@@ -109,7 +110,7 @@ def agent_yeni():
         return {"error": "Geçersiz model"}, 400
 
     session_id = str(uuid.uuid4())
-    _agentlar[session_id] = Agent(system_instructions, model)
+    _agentlar[session_id] = Agent(system_instructions, model, session_id=session_id)
     return {"session_id": session_id}
 
 
@@ -140,5 +141,37 @@ def agent_calistir():
     )
 
 
+@app.route("/api/transcribe", methods=["POST"])
+def transcribe():
+    if "audio" not in request.files:
+        return {"error": "audio dosyası eksik"}, 400
+    audio_file = request.files["audio"]
+    try:
+        result = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=(audio_file.filename or "audio.webm", audio_file.stream, audio_file.mimetype),
+            language="tr",
+        )
+        return {"text": result.text}
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/agent/kullanici_input", methods=["POST"])
+def agent_kullanici_input():
+    data = request.get_json(silent=True) or {}
+    session_id = data.get("session_id", "").strip()
+    text = data.get("text", "").strip()
+
+    if not text:
+        return {"error": "text boş olamaz"}, 400
+
+    if session_id not in _agentlar:
+        return {"error": "Geçersiz veya süresi dolmuş oturum"}, 404
+
+    submit_input(session_id, text)
+    return {"ok": True}
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, threaded=True)
